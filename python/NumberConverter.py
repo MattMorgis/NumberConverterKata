@@ -11,13 +11,10 @@ It uses doctest to test toWords with many examples like the one above.
 It runs in Python 3 or Python 2.
 
 Notes:
-While the code below completes all the test cases it is crap and ripe for refactoring.
-TODO:
-1. Provide a number from 0->999 without looping.
-2. Iterate over thousands instead of each power of 10.
-3. Remove duplicate string functions and move all strings resources collection.
-    - Use on resource for numbers 0-999.
-    - Uses a second resource for thousands, millions, etc.
+This implementation works into trillions.
+It can be expanded beyond trillions by:
+- modifiying the range check on the argument at the beginning of toWords()
+- adding additional descriptive words to _illions resource at the end of this file.
 """
 import math
 
@@ -95,154 +92,76 @@ def toWords(n):
 
     >>> toWords(1000000)
     'one million'
+
+    >>> toWords(999019933747026)
+    'nine hundred ninety-nine trillion nineteen billion nine hundred thirty-three million seven hundred forty-seven thousand twenty-six'
+    
     """
 
     if not n >= 0:
         raise ValueError("n must be >= 0")
     if math.floor(n) != n:
         raise ValueError("n must be exact integer")
-    if n+1 == n:  # catch a value like 1e300
-        raise OverflowError("n too large")
+    if n >= 1e15:
+        raise ValueError("n too large")
   
     if n == 0:
         return "zero"
-
     words = ""
-    dms = [] # division by 10 and modulo tuple results
 
+    dms = [] # division and modulo tuple result list
+    # power of 1000 is index into list
+    # each modulo result will contain 0-999 for that power of 1000 
+    # div part is what is left to keep dividing
     div = n
     while div > 0:
-        dmtup = divmod(div, 10) 
+        dmtup = divmod(div, 1000) 
         dms.append(dmtup)
         div = dmtup[0]
     
-    pow10 = len(dms) - 1
-    index = pow10
-    dash = " "
-    hasThousands = False
-    while(index >= 0):
-        div = dms[index][0]
-        mod = dms[index][1]
-        if index == 0:
-            if mod != 0 and words != "":
-                words = words + dash
-            words = words + _toOnes(mod)
-        elif index == 1:
-            if mod == 1 and dms[index-1][1] != 0:
-                if words != "":
-                    words = words + dash                
-                words = words + _toTeens(dms[index-1][1])
-                index = index - 1
-            else:
-                tens = _toTens(mod)
-                if mod != 0 and words != "":
-                    words = words + dash
-                words = words + tens                
-                if tens != "":
-                    dash = "-"
-        elif index == 2:
-            if mod != 0 and words != "":
-                words = words + dash
-            words = words + _toHundreds(mod)
-        elif index == 3:
-            if mod != 0 and words != "":
-                words = words + dash
-            hasThousands = hasThousands or (mod != 0)                
-            words = words + _toOnes(mod)
-            if hasThousands:
-                words = words + " thousand"
-            tens = ""
-        elif index == 4:
-            if mod == 1 and dms[index-1][1] != 0:
-                if words != "":
-                    words = words + dash                
-                words = words + _toTeens(dms[index-1][1]) + " thousand"
-                index = index - 1
-            else:
-                tens = _toTens(mod)
-                if mod != 0 and words != "":
-                    words = words + dash
-                words = words + tens                
-                if tens != "":
-                    dash = "-"
-            hasThousands = hasThousands or (mod != 0)    
-        elif index == 5:
-            if mod != 0 and words != "":
-                words = words + dash            
-            words = words + _toHundreds(mod)
-            hasThousands = hasThousands or (mod != 0)
-        elif index == 6:
-            if mod != 0 and words != "":
-                words = words + dash            
-            words = words + _toMillions(mod)
-        index = index - 1
+    # loop build the string based on modulo 1000 tuple list results
+    pow1000 = len(dms) - 1
+    while pow1000 >= 0:
+        (div, mod) = dms[pow1000]
+        modwords = _to999(mod) 
+        cat = _space if words and modwords else ''
+        words = words + cat + modwords 
+        if pow1000 > 0 and modwords:
+                words = words + _space + _illions[pow1000]
+        pow1000 = pow1000 - 1
 
     return words
 
-def _toOnes(i):
-    if not (i >= 0 and i <= 9):
-        raise ValueError("i must be >= 0 and <=9")
-    ones = ("", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine")
-    return ones[i]
 
-def _toTeens(i):
-    if not (i >= 0 and i <= 9):
-        raise ValueError("i must be >= 0 and <=9")
-    if i == 0:
-        return ""
-    if i == 1:
-        return "eleven"
-    elif i == 2:
-        return "twelve"
-    elif i == 3:
-        return "thirteen"
-    elif i == 5:
-        return "fifteen"
-    else:
-        return _toOnes(i)+"teen"
+def _to999(i):
+    wr = ""
+    if i>=100:
+        (d, m) = divmod(i, 100)
+        wr = _ones[d] + _space + _hundred
+        if m == 0:
+            return wr
+        wr = wr + _space
+        i = m
+    if i>=10:
+        (d, m) = divmod(i, 10)
+        if m == 0:
+            return wr + _tens[d]
+        if d == 1:
+            return wr + _teens[m]
+        wr = wr + _tens[d] + _dash
+        i = m
+    wr = wr + _ones[i]
+    return wr
 
-def _toTens(i):
-    if not (i >= 0 and i <= 9):
-        raise ValueError("i must be >= 0 and <=9")
-    tens = ("", "ten", "twenty", "thirty", "fourty", "fifty", "sixty", "seventy", "eighty", "ninety")
-    return tens[i]
-
-def _toHundreds(i):
-    if i == 0:
-        return ""
-    else:
-        return _toOnes(i) + " hundred"
-
-def _toThousands(i):
-    if i == 0:
-        return ""
-    else:
-        return _toOnes(i) + " thousand"
-
-def _toTeenThousands(i):
-    if i == 0:
-        return ""
-    else:
-        return _toTeens(i) + " thousand"
-
-
-def _toTenThousands(i):
-    if i == 0:
-        return ""
-    else:
-        return _toTens(i) + " thousand"
-
-def _toHundredThousands(i):
-    if i == 0:
-        return ""
-    else:
-        return _toHundreds(i) + " thousand"
-
-def _toMillions(i):
-    if i == 0:
-        return ""
-    else:
-        return _toOnes(i) + " million"
+# string resources
+_zero = "zero"
+_space = " "
+_dash = "-"
+_ones = ("", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine")
+_tens = ("", "ten", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety")
+_teens = ("", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen")
+_hundred = "hundred"
+_illions = ("", "thousand", "million", "billion", "trillion")
 
 # run doctest on above tests if this file is directly as main
 if __name__ == "__main__":
